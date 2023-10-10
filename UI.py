@@ -124,17 +124,12 @@ class GUI(customtkinter.CTk):
         self.grid_rowconfigure(0, weight=1)
         self.grid_columnconfigure(1, weight=1)
 
+        self.callbacks = {}
+
         self.home_frame = HomeFrame(self)
         self.calendar_frame = CalendarFrame(self)
         self.day_frame = DayFrame(self)
         self.navigation_frame = NavigationFrame(self)
-    
-    def bind_delete_activity(self, callback: Callable[[tk.Event], None]) -> None:
-        print("aqui-master")
-        self.day_frame.bind_delete_activity(callback)
-    
-    def bind_add_activity(self, callback: Callable[[tk.Event], None]) -> None:
-        self.day_frame.bind_add_activity(callback)
     
     def day_frame_update(self, day=None):
         self.day_frame = DayFrame(self.master, date=day)
@@ -274,13 +269,13 @@ class CalendarFrame(customtkinter.CTkFrame):
         date = self.calendar.get_date()
         self.master.day_frame_update(date)
 
+ADD_BTN_TXT = "Add"
+EDIT_BTN_TXT = "Edit"
 DELETE_BTN_TXT = "Delete"
 
 class DayFrame(customtkinter.CTkFrame):
     def __init__(self, master, date=None) -> None:
         super().__init__(master)
-
-        self.callbacks = {}
 
         if not date:
             date = datetime.now().strftime("%d-%m-%Y")
@@ -294,35 +289,64 @@ class DayFrame(customtkinter.CTkFrame):
         self.task_list.bind("<<ListboxSelect>>", self.on_select_activity)
         self.task_list.pack(fill=tk.X)
 
-        self.my_entry = tk.Entry(self)
-        self.my_entry.pack(fill=tk.X)
+        self.add_task_button = customtkinter.CTkButton(
+            self,
+            text=ADD_BTN_TXT,
+            width=15,
+        )
 
-        self.del_task_button = tk.Button(
+        self.edit_task_button = customtkinter.CTkButton(
+            self,
+            text=EDIT_BTN_TXT,
+            width=15,
+            state=tk.DISABLED,
+        )
+
+        self.del_task_button = customtkinter.CTkButton(
             self,
             text=DELETE_BTN_TXT,
-            width=6,
-            pady=5,
+            width=15,
             state=tk.DISABLED,
-            # command=self.delete_activity
         )
-        self.del_task_button.pack(side=tk.TOP, anchor=tk.NE)
+        self.add_task_button.pack(side=tk.LEFT, anchor=tk.NW, padx=20)
+        self.edit_task_button.pack(side=tk.LEFT, anchor=tk.N, padx=20)
+        self.del_task_button.pack(side=tk.LEFT, anchor=tk.NE, padx=20)
+
+        self.bind_delete_activity(self.delete_activity)
+        self.bind_edit_activity(self.edit_activity)
+        self.bind_add_activity(self.add_activity)
         
         self.update_activity_list()
     
-    def get_callbacks(self, method_list: list[str, Callable[[tk.Event], None]]) -> None:
-        for method in method_list:
-            self.callbacks[method[0]] = method[1]
+    def add_activity(self, event=None) -> None:
+        self.add_toplevel = AddEditWindow(self.update_add_activity)
+    
+    def edit_activity(self, event=None) -> None:
+        self.add_toplevel = AddEditWindow(self.update_edit_activity)
+    
+    def delete_activity(self, event=None) -> None: # TODO: delete activity
+        print("deletei dentro da função")
+        self.master.activity_handler.delete_activity(self.selected_task)
+        self.update_activity_list()
+    
+    def bind_delete_activity(self, method: Callable[[tk.Event], None]) -> None:
+        self.del_task_button.bind("<Button-1>", method)
+    
+    def bind_edit_activity(self, method: Callable[[tk.Event], None]) -> None:
+        self.edit_task_button.bind("<Button-1>", method)
 
-    def bind_callbacks(self) -> None:
-        self.del_task_button.config(command=self.callbacks["delete_activity"])
-        self.my_entry.bind("<Button-1>", self.callbacks["add_activity"])
-        print(self.callbacks)
+    def bind_add_activity(self, method: Callable[[tk.Event], None]) -> None:
+        self.add_task_button.bind("<Button-1>", method)
 
-    def get_entry_text(self) -> str:
-        return self.my_entry.get()
-
-    def clear_entry(self) -> None:
-        self.my_entry.delete(0, "end")
+    def update_add_activity(self, time, remainder, message):
+        activity = Activity(self.date, time, remainder, message)
+        self.master.activity_handler.add_activity(activity)
+        self.update_activity_list()
+    
+    def update_edit_activity(self, time, remainder, message): # TODO: edit activity
+        activity = Activity(self.date, time, remainder, message)
+        self.master.activity_handler.edit_activity(activity)
+        self.update_activity_list()
 
     @property
     def selected_task(self) -> str:
@@ -330,15 +354,80 @@ class DayFrame(customtkinter.CTkFrame):
         return self.task_list.get(self.task_list.curselection())
 
     def on_select_activity(self, event=None) -> None:
-        self.del_task_button.config(state=tk.NORMAL)
+        self.edit_task_button.configure(state=tk.NORMAL)
+        self.del_task_button.configure(state=tk.NORMAL)
 
     def on_focus_out(self, event=None) -> None:
         self.task_list.selection_clear(0, tk.END)
-        self.del_task_button.config(state=tk.DISABLED)
+        self.del_task_button.configure(state=tk.DISABLED)
 
     def update_activity_list(self) -> None:
         self.task_list.delete(0, tk.END)
         for item in self.master.activity_handler.get_day_activities(self.date):
             self.task_list.insert(tk.END, item)
-        self.del_task_button.config(state=tk.DISABLED)
+        self.del_task_button.configure(state=tk.DISABLED)
         self.task_list.yview(tk.END)
+
+
+class AddEditWindow:
+    def __init__(self, update, activity: Activity = None):
+        self.top = customtkinter.CTkToplevel()
+        self.top.geometry("400x400")
+        self.time_frame = customtkinter.CTkFrame(self.top, fg_color="transparent")
+        self.remainder_frame = customtkinter.CTkFrame(self.top, fg_color="transparent")
+        self.message_frame = customtkinter.CTkFrame(self.top, fg_color="transparent")
+        self.add_frame = customtkinter.CTkFrame(self.top, fg_color="transparent")
+
+        if activity:
+            self.time = activity.time
+            self.remainder = activity.remainder
+            self.message = activity.message
+            self.top.title("Edit Activity")
+            self.button_name = "Edit"
+        else:
+            self.time = None
+            self.remainder = None
+            self.message = None
+            self.top.title("Add Activity") 
+            self.button_name = "Add"
+
+        self.time_label = customtkinter.CTkLabel(self.time_frame, text=f"Time: {self.time}")
+        self.time_button = customtkinter.CTkButton(self.time_frame, text="Configure Time", command=self.get_time_dialog_event)
+        self.time_button.pack(side=tk.LEFT, padx=10, pady=5)
+        self.time_label.pack(side=tk.LEFT, padx=10, pady=5)
+
+        self.remainder_label = customtkinter.CTkLabel(self.remainder_frame, text=f"Remainder: {self.remainder}")
+        self.remainder_button = customtkinter.CTkButton(self.remainder_frame, text="Configure Remainder", command=self.get_remainder_dialog_event)
+        self.remainder_button.pack(side=tk.LEFT, padx=10, pady=5)
+        self.remainder_label.pack(side=tk.LEFT, padx=10, pady=5)
+
+        self.message_label = customtkinter.CTkLabel(self.message_frame, text=f"Message: {self.message}")
+        self.message_button = customtkinter.CTkButton(self.message_frame, text="Configure Message", command=self.get_message_dialog_event)
+        self.message_button.pack(side=tk.LEFT, padx=10, pady=5)
+        self.message_label.pack(side=tk.LEFT, padx=10, pady=5)
+
+        self.add_button = customtkinter.CTkButton(self.add_frame, text=self.button_name, command=self.submit)
+        self.add_button.pack(side=tk.TOP, padx=10, pady=10)
+
+        self.time_frame.pack(padx=10, pady=10)
+        self.remainder_frame.pack(padx=10, pady=10)
+        self.message_frame.pack(padx=10, pady=10)
+        self.add_frame.pack(padx=10, pady=10)
+
+        self.update = update
+
+    def get_time_dialog_event(self) -> None:
+        dialog = customtkinter.CTkInputDialog(text="Time (--h-- format):", title="CTkInputDialog")
+        self.time = dialog.get_input()
+        print(self.time)
+    
+    def get_remainder_dialog_event(self) -> None:
+        dialog = customtkinter.CTkInputDialog(text="Remainder (h):", title="CTkInputDialog")
+        self.remainder = dialog.get_input()
+    
+    def get_message_dialog_event(self) -> None:
+        dialog = customtkinter.CTkInputDialog(text="Message:", title="CTkInputDialog")
+        self.message = dialog.get_input()
+    
+    def submit(self) -> None:
+        self.update(self.time, self.remainder, self.message) 

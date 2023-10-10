@@ -5,11 +5,7 @@ class Agenda:
     def __init__(self, ui: GUI, activity_handler: ActivityHandler) -> None:
         self.ui = ui    
         self.activity_handler = activity_handler
-        self.ui.day_frame.get_callbacks([("delete_activity", self.delete_activity), ("add_activity", self.add_activity)])
-        self.ui.day_frame.bind_callbacks()
-
-        self.ui.mainloop()
-
+        
     def add_activity(self, event=None) -> None:
         print("add")
         activity = self.ui.day_frame.get_entry_text()

@@ -6,7 +6,7 @@ def main():
     act_hand = ActivityHandler()
     ui = GUI(act_hand)
     agenda = Agenda(ui, act_hand)
-    # agenda.run()
+    agenda.run()
 
 if __name__=='__main__':
     main()
