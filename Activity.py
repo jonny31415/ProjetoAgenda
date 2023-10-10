@@ -47,7 +47,7 @@ class ActivityHandler:
 
     def get_day_activities(self, date: datetime) -> list[tuple, Activity]:
         activities: list[tuple[int, Activity]] = []
-        for row in self.cursor.execute(f"select id, time, remainder, message from {self.table_name}"):
+        for row in self.cursor.execute(f"select id, time, remainder, message from {self.table_name} where date = ?", (date,)):
             act = Activity(date, row[1], row[2], row[3])
-            activities.append(act)    # TODO: Correct id problem
+            activities.append((row[0], act))    # TODO: Correct id problem
         return activities

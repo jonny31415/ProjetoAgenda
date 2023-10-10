@@ -280,7 +280,9 @@ class DayFrame(customtkinter.CTkFrame):
         if not date:
             date = datetime.now().strftime("%d-%m-%Y")
         self.date = date
-    
+
+        # self.task_list = ScrollableRadiobuttonFrame(self, item_list=[]) # TODO: Implement this
+
         self.task_list = tk.Listbox(
             self,
             height=10,
@@ -292,20 +294,20 @@ class DayFrame(customtkinter.CTkFrame):
         self.add_task_button = customtkinter.CTkButton(
             self,
             text=ADD_BTN_TXT,
-            width=15,
+            width=100,
         )
 
         self.edit_task_button = customtkinter.CTkButton(
             self,
             text=EDIT_BTN_TXT,
-            width=15,
+            width=100,
             state=tk.DISABLED,
         )
 
         self.del_task_button = customtkinter.CTkButton(
             self,
             text=DELETE_BTN_TXT,
-            width=15,
+            width=100,
             state=tk.DISABLED,
         )
         self.add_task_button.pack(side=tk.LEFT, anchor=tk.NW, padx=20)
@@ -322,12 +324,18 @@ class DayFrame(customtkinter.CTkFrame):
         self.add_toplevel = AddEditWindow(self.update_add_activity)
     
     def edit_activity(self, event=None) -> None:
-        self.add_toplevel = AddEditWindow(self.update_edit_activity)
+        splitted= self.selected_task[1].split("'")
+        date = splitted[1]
+        time = splitted[3]
+        remainder = splitted[5]
+        message = splitted[7]
+        activity = Activity(date, time, remainder, message)
+        self.add_toplevel = AddEditWindow(self.update_edit_activity, act_id=self.selected_task[0], activity=activity)
     
-    def delete_activity(self, event=None) -> None: # TODO: delete activity
-        print("deletei dentro da função")
-        self.master.activity_handler.delete_activity(self.selected_task)
+    def delete_activity(self, event=None) -> None:
+        self.master.activity_handler.delete_activity(id=self.selected_task[0])
         self.update_activity_list()
+        self.operation_successful = OperationSuccessful("Delete")
     
     def bind_delete_activity(self, method: Callable[[tk.Event], None]) -> None:
         self.del_task_button.bind("<Button-1>", method)
@@ -338,19 +346,20 @@ class DayFrame(customtkinter.CTkFrame):
     def bind_add_activity(self, method: Callable[[tk.Event], None]) -> None:
         self.add_task_button.bind("<Button-1>", method)
 
-    def update_add_activity(self, time, remainder, message):
+    def update_add_activity(self, _, time, remainder, message):
         activity = Activity(self.date, time, remainder, message)
         self.master.activity_handler.add_activity(activity)
         self.update_activity_list()
+        self.operation_successful = OperationSuccessful("Add")
     
-    def update_edit_activity(self, time, remainder, message): # TODO: edit activity
+    def update_edit_activity(self, act_id, time, remainder, message):
         activity = Activity(self.date, time, remainder, message)
-        self.master.activity_handler.edit_activity(activity)
+        self.master.activity_handler.edit_activity(id=act_id, act=activity)
         self.update_activity_list()
+        self.operation_successful = OperationSuccessful("Edit")
 
     @property
     def selected_task(self) -> str:
-        print(self.task_list.curselection())
         return self.task_list.get(self.task_list.curselection())
 
     def on_select_activity(self, event=None) -> None:
@@ -365,12 +374,41 @@ class DayFrame(customtkinter.CTkFrame):
         self.task_list.delete(0, tk.END)
         for item in self.master.activity_handler.get_day_activities(self.date):
             self.task_list.insert(tk.END, item)
+        self.edit_task_button.configure(state=tk.DISABLED)
         self.del_task_button.configure(state=tk.DISABLED)
         self.task_list.yview(tk.END)
 
 
+# class ScrollableRadiobuttonFrame(customtkinter.CTkScrollableFrame):
+#     def __init__(self, master, item_list, command=None, **kwargs):
+#         super().__init__(master, **kwargs)
+
+#         self.command = command
+#         self.radiobutton_variable = customtkinter.StringVar()
+#         self.radiobutton_list = []
+#         for i, item in enumerate(item_list):
+#             self.add_item(item)
+
+#     def add_item(self, item):
+#         radiobutton = customtkinter.CTkRadioButton(self, text=item, value=item, variable=self.radiobutton_variable)
+#         if self.command is not None:
+#             radiobutton.configure(command=self.command)
+#         radiobutton.grid(row=len(self.radiobutton_list), column=0, pady=(0, 10))
+#         self.radiobutton_list.append(radiobutton)
+
+#     def remove_item(self, item):
+#         for radiobutton in self.radiobutton_list:
+#             if item == radiobutton.cget("text"):
+#                 radiobutton.destroy()
+#                 self.radiobutton_list.remove(radiobutton)
+#                 return
+
+#     def get_checked_item(self):
+#         return self.radiobutton_variable.get()
+    
+
 class AddEditWindow:
-    def __init__(self, update, activity: Activity = None):
+    def __init__(self, update, act_id:int = None, activity: Activity = None):
         self.top = customtkinter.CTkToplevel()
         self.top.geometry("400x400")
         self.time_frame = customtkinter.CTkFrame(self.top, fg_color="transparent")
@@ -378,6 +416,8 @@ class AddEditWindow:
         self.message_frame = customtkinter.CTkFrame(self.top, fg_color="transparent")
         self.add_frame = customtkinter.CTkFrame(self.top, fg_color="transparent")
 
+        self.act_id = act_id
+        
         if activity:
             self.time = activity.time
             self.remainder = activity.remainder
@@ -406,8 +446,8 @@ class AddEditWindow:
         self.message_button.pack(side=tk.LEFT, padx=10, pady=5)
         self.message_label.pack(side=tk.LEFT, padx=10, pady=5)
 
-        self.add_button = customtkinter.CTkButton(self.add_frame, text=self.button_name, command=self.submit)
-        self.add_button.pack(side=tk.TOP, padx=10, pady=10)
+        self.submit_button = customtkinter.CTkButton(self.add_frame, text=self.button_name, command=self.submit, state=tk.DISABLED)
+        self.submit_button.pack(side=tk.TOP, padx=10, pady=10)
 
         self.time_frame.pack(padx=10, pady=10)
         self.remainder_frame.pack(padx=10, pady=10)
@@ -419,15 +459,40 @@ class AddEditWindow:
     def get_time_dialog_event(self) -> None:
         dialog = customtkinter.CTkInputDialog(text="Time (--h-- format):", title="CTkInputDialog")
         self.time = dialog.get_input()
-        print(self.time)
+        self.time_label.configure(text=f"Time: {self.time}")
+        self.update_button()
     
     def get_remainder_dialog_event(self) -> None:
-        dialog = customtkinter.CTkInputDialog(text="Remainder (h):", title="CTkInputDialog")
+        dialog = customtkinter.CTkInputDialog(text="Remainder (--h-- format):", title="CTkInputDialog")
         self.remainder = dialog.get_input()
+        self.time_label.configure(text=f"Remainder: {self.remainder}")
+        self.update_button()
     
     def get_message_dialog_event(self) -> None:
         dialog = customtkinter.CTkInputDialog(text="Message:", title="CTkInputDialog")
         self.message = dialog.get_input()
+        self.message_label.configure(text=f"Message: {self.message}")
+        self.update_button()    
+    
+    def update_button(self) -> None:    
+        if self.time and self.remainder and self.message:
+            self.submit_button.configure(state=tk.NORMAL)
+        else:
+            self.submit_button.configure(state=tk.DISABLED)
     
     def submit(self) -> None:
-        self.update(self.time, self.remainder, self.message) 
+        self.update(self.act_id, self.time, self.remainder, self.message) 
+        self.top.destroy()
+
+
+class OperationSuccessful:
+    def __init__(self, type: str):
+        self.top = customtkinter.CTkToplevel()
+        self.top.geometry("400x400")
+        self.top.title("Success!")
+        self.frame = customtkinter.CTkFrame(self.top, fg_color="transparent") # TODO: Change fontsize
+        self.label = customtkinter.CTkLabel(self.frame, text=f"{type} successfully!")
+        self.button = customtkinter.CTkButton(self.frame, text="Ok", command=self.top.destroy)
+        self.label.pack(padx=10, pady=10)  
+        self.button.pack(padx=10, pady=10) 
+        self.frame.pack(padx=10, pady=10)
