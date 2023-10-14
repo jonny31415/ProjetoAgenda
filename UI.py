@@ -1,4 +1,4 @@
-from typing import Protocol, Any, Callable
+from typing import Callable
 from datetime import datetime
 import calendar
 import customtkinter
@@ -6,34 +6,14 @@ from tkcalendar import Calendar
 import tkinter as tk
 import os
 from PIL import Image
+from pathlib import Path
+import sys
 
 from Activity import Activity, ActivityHandler
+from Remainder import update_remainder
 
-
-class UI(Protocol):
-    def render_calendar(self) -> None:
-        NotImplementedError()
-
-    def render_activities(self, act_list: list[tuple[int, Activity]]) -> None:
-        NotImplementedError()
-
-    def render_activity_options(self) -> int:
-        NotImplementedError()
-
-    def render_change_date(self) -> None:
-        NotImplementedError()
-
-    def render_add_activity(self) -> tuple[int, int, str]:
-        NotImplementedError()
-
-    def render_edit_activity(self) -> tuple[int, int, int, str]:
-        NotImplementedError()
-
-    def render_delete_activity(self) -> int:
-        NotImplementedError()
-
-    def mainloop(self) -> None:
-        NotImplementedError()
+FOLDER_PATH =  str(Path(Path(__file__).parent.absolute()))
+sys.path.insert(0, FOLDER_PATH)
 
 class CLI:
     def __init__(self):
@@ -95,27 +75,6 @@ class GUI(customtkinter.CTk):
         self.activity_handler = activity_handler
         self.create_ui()
     
-    def render_calendar(self) -> None:
-        NotImplementedError()
-
-    def render_activities(self, act_list: list[tuple[int, Activity]]) -> None:
-        NotImplementedError()
-
-    def render_activity_options(self) -> int:
-        NotImplementedError()
-
-    def render_change_date(self) -> None:
-        NotImplementedError()
-
-    def render_add_activity(self) -> tuple[int, int, str]:
-        NotImplementedError()
-
-    def render_edit_activity(self) -> tuple[int, int, int, str]:
-        NotImplementedError()
-
-    def render_delete_activity(self) -> int:
-        NotImplementedError()
-    
     def create_ui(self) -> None:
         self.title("MyTaskNotes Beta")
         self.geometry("700x450")
@@ -128,6 +87,7 @@ class GUI(customtkinter.CTk):
 
         self.home_frame = HomeFrame(self)
         self.calendar_frame = CalendarFrame(self)
+        self.activities_frame = ActivitiesFrame(self)
         self.day_frame = DayFrame(self)
         self.navigation_frame = NavigationFrame(self)
     
@@ -170,6 +130,11 @@ class NavigationFrame(customtkinter.CTkFrame):
                                                       image=self.calendar_image, anchor="w", command=self.calendar_button_event)
         self.calendar_button.grid(row=2, column=0, sticky="ew")
 
+        self.activities_button = customtkinter.CTkButton(self, corner_radius=0, height=40, border_spacing=10, text="Activities",
+                                                      fg_color="transparent", text_color=("gray10", "gray90"), hover_color=("gray70", "gray30"),
+                                                      image=self.calendar_image, anchor="w", command=self.activities_button_event)
+        self.activities_button.grid(row=3, column=0, sticky="ew")
+
         self.appearance_mode_menu = customtkinter.CTkOptionMenu(self, values=["Dark", "Light", "System"],
                                                                 command=self.change_appearance_mode_event)
         self.appearance_mode_menu.grid(row=6, column=0, padx=20, pady=20, sticky="s")
@@ -195,12 +160,19 @@ class NavigationFrame(customtkinter.CTkFrame):
             self.master.day_frame.grid(row=0, column=1, sticky="nsew")
         else:
             self.master.day_frame.grid_forget()
+        if name == "activities":
+            self.master.activities_frame.grid(row=0, column=1, sticky="nsew")
+        else:
+            self.master.activities_frame.grid_forget()
 
     def home_button_event(self):
         self.select_frame_by_name("home")
 
     def calendar_button_event(self):
         self.select_frame_by_name("calendar")
+    
+    def activities_button_event(self):
+        self.select_frame_by_name("activities")
     
     def change_appearance_mode_event(self, new_appearance_mode):
         customtkinter.set_appearance_mode(new_appearance_mode)
@@ -209,23 +181,27 @@ class NavigationFrame(customtkinter.CTkFrame):
 class HomeFrame(customtkinter.CTkFrame):
     def __init__(self, master) -> None:
         super().__init__(master)
-        
-        # Load images 
-        image_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), "UI_images/Home")
-        self.large_test_image = customtkinter.CTkImage(Image.open(os.path.join(image_path, "large_test_image.png")), size=(500, 150))
-        self.image_icon_image = customtkinter.CTkImage(Image.open(os.path.join(image_path, "image_icon_light.png")), size=(20, 20))
 
-        self.large_image_label = customtkinter.CTkLabel(self, text="", image=self.large_test_image)
-        self.large_image_label.grid(row=0, column=0, padx=20, pady=10)
+        self.activities_list = self.master.activity_handler.get_activities()
+        if not self.activities_list:
+            self.no_activities_label = customtkinter.CTkLabel(self, text="No Activities")
+            self.no_activities_label.grid(row=0, column=0, columnspan=2)
+        else:
+            self.next_date = self.activities_list[0][1].date
+            self.next_time = self.activities_list[0][1].time
+            self.next_remainder = self.activities_list[0][1].remainder
+            self.next_message = self.activities_list[0][1].message
 
-        self.button_1 = customtkinter.CTkButton(self, text="", image=self.image_icon_image)
-        self.button_1.grid(row=1, column=0, padx=20, pady=10)
-        self.button_2 = customtkinter.CTkButton(self, text="CTkButton", image=self.image_icon_image, compound="right")
-        self.button_2.grid(row=2, column=0, padx=20, pady=10)
-        self.button_3 = customtkinter.CTkButton(self, text="CTkButton", image=self.image_icon_image, compound="top")
-        self.button_3.grid(row=3, column=0, padx=20, pady=10)
-        self.button_4 = customtkinter.CTkButton(self, text="CTkButton", image=self.image_icon_image, compound="bottom", anchor="w")
-        self.button_4.grid(row=4, column=0, padx=20, pady=10)
+            self.next_activity_label = customtkinter.CTkLabel(self, text="Next Activity:")
+            self.next_activity_label.grid(row=0, column=0, columnspan=2)
+            self.date_label = customtkinter.CTkLabel(self, text=f"Date: {self.next_date}")
+            self.date_label.grid(row=1, column=0)
+            self.time_label = customtkinter.CTkLabel(self, text=f"Time: {self.next_time}")
+            self.time_label.grid(row=1, column=1)
+            self.remainder_label = customtkinter.CTkLabel(self, text=f"Remainder: {self.next_remainder}")
+            self.remainder_label.grid(row=2, column=0)
+            self.message_label = customtkinter.CTkLabel(self, text=f"Message: {self.next_message}")
+            self.message_label.grid(row=2, column=1)
 
 
 class CalendarFrame(customtkinter.CTkFrame):
@@ -266,8 +242,22 @@ class CalendarFrame(customtkinter.CTkFrame):
     # -----------------------------------------------------------
 
     def get_day_frame(self, event=None) -> None:
-        date = self.calendar.get_date()
+        date = datetime.strptime(self.calendar.get_date(),"%d-%m-%Y")
         self.master.day_frame_update(date)
+
+class ActivitiesFrame(customtkinter.CTkFrame):
+    def __init__(self, master) -> None:
+        super().__init__(master)
+
+        self.activities_list = self.master.activity_handler.get_activities()
+        if not self.activities_list:
+            self.no_activities_label = customtkinter.CTkLabel(self, text="No Activities")
+            self.no_activities_label.grid(row=0, column=0, columnspan=2)
+        else:
+            self.task_list = ScrollableRadiobuttonFrame(self, item_list=self.activities_list)
+            self.task_list.pack(fill=tk.X)
+            
+
 
 ADD_BTN_TXT = "Add"
 EDIT_BTN_TXT = "Edit"
@@ -278,17 +268,10 @@ class DayFrame(customtkinter.CTkFrame):
         super().__init__(master)
 
         if not date:
-            date = datetime.now().strftime("%d-%m-%Y")
+            date = datetime(datetime.now().year, datetime.now().month, datetime.now().day) 
         self.date = date
 
-        # self.task_list = ScrollableRadiobuttonFrame(self, item_list=[]) # TODO: Implement this
-
-        self.task_list = tk.Listbox(
-            self,
-            height=10,
-        )
-        self.task_list.bind("<FocusOut>", self.on_focus_out)
-        self.task_list.bind("<<ListboxSelect>>", self.on_select_activity)
+        self.task_list = ScrollableRadiobuttonFrame(self, item_list=[], command=self.on_select_activity)
         self.task_list.pack(fill=tk.X)
 
         self.add_task_button = customtkinter.CTkButton(
@@ -324,18 +307,21 @@ class DayFrame(customtkinter.CTkFrame):
         self.add_toplevel = AddEditWindow(self.update_add_activity)
     
     def edit_activity(self, event=None) -> None:
-        splitted= self.selected_task[1].split("'")
-        date = splitted[1]
-        time = splitted[3]
-        remainder = splitted[5]
-        message = splitted[7]
-        activity = Activity(date, time, remainder, message)
-        self.add_toplevel = AddEditWindow(self.update_edit_activity, act_id=self.selected_task[0], activity=activity)
+        splitted= self.selected_task.split(",")
+        id = splitted[0][1:]
+        splitted2 = splitted[1].split(" ")
+        date = splitted2[2][:10]
+        time = splitted2[3][:5]
+        remainder = splitted2[4][:5]
+        message = splitted2[5][:-2]
+        activity = Activity(datetime.strptime(date, "%d/%m/%Y"), datetime.strptime(time, "%H:%M"), datetime.strptime(remainder, "%H:%M"), message)
+        self.add_toplevel = AddEditWindow(self.update_edit_activity, act_id=id, activity=activity)
     
     def delete_activity(self, event=None) -> None:
-        self.master.activity_handler.delete_activity(id=self.selected_task[0])
+        self.master.activity_handler.delete_activity(id=self.selected_task.split(",")[0][1:])
         self.update_activity_list()
         self.operation_successful = OperationSuccessful("Delete")
+        update_remainder()
     
     def bind_delete_activity(self, method: Callable[[tk.Event], None]) -> None:
         self.del_task_button.bind("<Button-1>", method)
@@ -347,20 +333,31 @@ class DayFrame(customtkinter.CTkFrame):
         self.add_task_button.bind("<Button-1>", method)
 
     def update_add_activity(self, _, time, remainder, message):
+        if isinstance(time, str):
+            time = datetime.strptime(time, "%Hh%M")
+        if isinstance(remainder, str):
+            remainder = datetime.strptime(remainder, "%Hh%M")
         activity = Activity(self.date, time, remainder, message)
         self.master.activity_handler.add_activity(activity)
         self.update_activity_list()
         self.operation_successful = OperationSuccessful("Add")
-    
+        update_remainder()
+        
+
     def update_edit_activity(self, act_id, time, remainder, message):
+        if isinstance(time, str):
+            time = datetime.strptime(time, "%Hh%M")
+        if isinstance(remainder, str):
+            remainder = datetime.strptime(remainder, "%Hh%M")
         activity = Activity(self.date, time, remainder, message)
         self.master.activity_handler.edit_activity(id=act_id, act=activity)
         self.update_activity_list()
         self.operation_successful = OperationSuccessful("Edit")
+        update_remainder()
 
     @property
     def selected_task(self) -> str:
-        return self.task_list.get(self.task_list.curselection())
+        return self.task_list.get_checked_item()
 
     def on_select_activity(self, event=None) -> None:
         self.edit_task_button.configure(state=tk.NORMAL)
@@ -371,40 +368,42 @@ class DayFrame(customtkinter.CTkFrame):
         self.del_task_button.configure(state=tk.DISABLED)
 
     def update_activity_list(self) -> None:
-        self.task_list.delete(0, tk.END)
-        for item in self.master.activity_handler.get_day_activities(self.date):
-            self.task_list.insert(tk.END, item)
-        self.edit_task_button.configure(state=tk.DISABLED)
-        self.del_task_button.configure(state=tk.DISABLED)
-        self.task_list.yview(tk.END)
+        self.task_list.update_list(self.master.activity_handler.get_day_activities(self.date))
 
 
-# class ScrollableRadiobuttonFrame(customtkinter.CTkScrollableFrame):
-#     def __init__(self, master, item_list, command=None, **kwargs):
-#         super().__init__(master, **kwargs)
+class ScrollableRadiobuttonFrame(customtkinter.CTkScrollableFrame): # TODO: Solve edit and delete buttons active after deleting activities 
+    def __init__(self, master, item_list, command=None, **kwargs):
+        super().__init__(master, **kwargs)
 
-#         self.command = command
-#         self.radiobutton_variable = customtkinter.StringVar()
-#         self.radiobutton_list = []
-#         for i, item in enumerate(item_list):
-#             self.add_item(item)
+        self.command = command
+        self.radiobutton_variable = customtkinter.StringVar()
+        self.radiobutton_list = []
+        for _, item in enumerate(item_list):
+            self.add_item(item)
 
-#     def add_item(self, item):
-#         radiobutton = customtkinter.CTkRadioButton(self, text=item, value=item, variable=self.radiobutton_variable)
-#         if self.command is not None:
-#             radiobutton.configure(command=self.command)
-#         radiobutton.grid(row=len(self.radiobutton_list), column=0, pady=(0, 10))
-#         self.radiobutton_list.append(radiobutton)
+    def add_item(self, item):
+        radiobutton = customtkinter.CTkRadioButton(self, text=item[1], value=item, variable=self.radiobutton_variable)
+        if self.command is not None:
+            radiobutton.configure(command=self.command)
+        radiobutton.grid(row=len(self.radiobutton_list), column=0, pady=(0, 10), sticky="w")
+        self.radiobutton_list.append(radiobutton)
 
-#     def remove_item(self, item):
-#         for radiobutton in self.radiobutton_list:
-#             if item == radiobutton.cget("text"):
-#                 radiobutton.destroy()
-#                 self.radiobutton_list.remove(radiobutton)
-#                 return
+    def remove_item(self, item):
+        for radiobutton in self.radiobutton_list:
+            if item == radiobutton.cget("text"):
+                radiobutton.destroy()
+                self.radiobutton_list.remove(radiobutton)
+                return
+    
+    def update_list(self, item_list):
+        for radiobutton in self.radiobutton_list:
+            radiobutton.destroy()
+        self.radiobutton_list = []
+        for item in item_list:
+            self.add_item(item)
 
-#     def get_checked_item(self):
-#         return self.radiobutton_variable.get()
+    def get_checked_item(self):
+        return self.radiobutton_variable.get()
     
 
 class AddEditWindow:
@@ -431,12 +430,12 @@ class AddEditWindow:
             self.top.title("Add Activity") 
             self.button_name = "Add"
 
-        self.time_label = customtkinter.CTkLabel(self.time_frame, text=f"Time: {self.time}")
+        self.time_label = customtkinter.CTkLabel(self.time_frame, text=f"Time: {datetime.strftime(self.time, '%Hh%M') if self.time else None}")
         self.time_button = customtkinter.CTkButton(self.time_frame, text="Configure Time", command=self.get_time_dialog_event)
         self.time_button.pack(side=tk.LEFT, padx=10, pady=5)
         self.time_label.pack(side=tk.LEFT, padx=10, pady=5)
 
-        self.remainder_label = customtkinter.CTkLabel(self.remainder_frame, text=f"Remainder: {self.remainder}")
+        self.remainder_label = customtkinter.CTkLabel(self.remainder_frame, text=f"Remainder: {datetime.strftime(self.remainder, '%Hh%M') if self.remainder else None}")
         self.remainder_button = customtkinter.CTkButton(self.remainder_frame, text="Configure Remainder", command=self.get_remainder_dialog_event)
         self.remainder_button.pack(side=tk.LEFT, padx=10, pady=5)
         self.remainder_label.pack(side=tk.LEFT, padx=10, pady=5)
@@ -465,7 +464,7 @@ class AddEditWindow:
     def get_remainder_dialog_event(self) -> None:
         dialog = customtkinter.CTkInputDialog(text="Remainder (--h-- format):", title="CTkInputDialog")
         self.remainder = dialog.get_input()
-        self.time_label.configure(text=f"Remainder: {self.remainder}")
+        self.remainder_label.configure(text=f"Remainder: {self.remainder}")
         self.update_button()
     
     def get_message_dialog_event(self) -> None:
