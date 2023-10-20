@@ -30,13 +30,12 @@ def read_pid() -> int:
     with open(PID_FILE, "rb") as file:
         return int.from_bytes(file.read(), "little")
 
-def show_toast(id: int, act: Activity, act_hand: ActivityHandler) -> None:
+def show_toast(act: Activity, act_hand: ActivityHandler) -> None:
     if act.date.date() != datetime.today().date():
         return
     message = f"You have an activity at {datetime.strftime(act.time, '%H:%M')}"
     toast = ToastNotifier()
     toast.show_toast(TITLE, message, icon_path=ICON_PATH, duration=DURATION, threaded=THREADED)
-    act_hand.delete_activity(id)
     return schedule.CancelJob
 
 def main() -> None:
@@ -44,10 +43,11 @@ def main() -> None:
     save_pid()
     act_hand = ActivityHandler()
     act_list: list[(int, Activity)] = act_hand.get_activities()
-    print(act_list)
     for act in act_list:
+        if datetime.combine(act[1].date.date(), act[1].time.time()) < datetime.now():
+            act_hand.delete_activity(act[0])
         remainder_time = act_hand.get_remainder_time(act[1])
-        schedule.every().day.at(str(remainder_time)).do(show_toast, id=act[0], act=act[1], act_hand=act_hand)
+        schedule.every().day.at(str(remainder_time)).do(show_toast, act=act[1], act_hand=act_hand)
 
     while True:
         schedule.run_pending()

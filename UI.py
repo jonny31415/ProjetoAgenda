@@ -146,6 +146,7 @@ class NavigationFrame(customtkinter.CTkFrame):
         # Set button color for selected button
         self.home_button.configure(fg_color=("gray75", "gray25") if name == "home" else "transparent")
         self.calendar_button.configure(fg_color=("gray75", "gray25") if name == "calendar" else "transparent")
+        self.activities_button.configure(fg_color=("gray75", "gray25") if name == "activities" else "transparent")
 
         # Show selected frame
         if name == "home":
@@ -166,12 +167,14 @@ class NavigationFrame(customtkinter.CTkFrame):
             self.master.activities_frame.grid_forget()
 
     def home_button_event(self):
+        self.master.home_frame.update_activity_list()
         self.select_frame_by_name("home")
 
     def calendar_button_event(self):
         self.select_frame_by_name("calendar")
     
     def activities_button_event(self):
+        self.master.activities_frame.update_activity_list()
         self.select_frame_by_name("activities")
     
     def change_appearance_mode_event(self, new_appearance_mode):
@@ -182,26 +185,81 @@ class HomeFrame(customtkinter.CTkFrame):
     def __init__(self, master) -> None:
         super().__init__(master)
 
+        self.update_activity_list()
+        
+    def update_activity_list(self):
+
         self.activities_list = self.master.activity_handler.get_activities()
+
+        # Removing all labels inside frame
+        for child in self.winfo_children():
+            if child.widgetName == "frame":
+                child.destroy()
+
         if not self.activities_list:
-            self.no_activities_label = customtkinter.CTkLabel(self, text="No Activities")
-            self.no_activities_label.grid(row=0, column=0, columnspan=2)
+            self.label_text = "No Activities"
         else:
             self.next_date = self.activities_list[0][1].date
             self.next_time = self.activities_list[0][1].time
             self.next_remainder = self.activities_list[0][1].remainder
             self.next_message = self.activities_list[0][1].message
 
-            self.next_activity_label = customtkinter.CTkLabel(self, text="Next Activity:")
-            self.next_activity_label.grid(row=0, column=0, columnspan=2)
-            self.date_label = customtkinter.CTkLabel(self, text=f"Date: {self.next_date}")
-            self.date_label.grid(row=1, column=0)
-            self.time_label = customtkinter.CTkLabel(self, text=f"Time: {self.next_time}")
-            self.time_label.grid(row=1, column=1)
-            self.remainder_label = customtkinter.CTkLabel(self, text=f"Remainder: {self.next_remainder}")
-            self.remainder_label.grid(row=2, column=0)
-            self.message_label = customtkinter.CTkLabel(self, text=f"Message: {self.next_message}")
-            self.message_label.grid(row=2, column=1)
+            self.label_text = "Next Activity:"
+            self.date_label = customtkinter.CTkLabel(self, 
+                                                     text=f"Date: {datetime.strftime(self.next_date, '%d/%m/%Y')}",
+                                                     font=customtkinter.CTkFont("Arial", 15),
+                                                    width=120,
+                                                    height=25,
+                                                    # fg_color=,
+                                                    corner_radius=8)
+
+            self.time_label = customtkinter.CTkLabel(self, 
+                                                     text=f"Time: {datetime.strftime(self.next_time, '%Hh%M')}",
+                                                     font=customtkinter.CTkFont("Arial", 15),
+                                                    width=120,
+                                                    height=25,
+                                                    # fg_color=,
+                                                    corner_radius=8)
+
+            self.remainder_label = customtkinter.CTkLabel(self, 
+                                                          text=f"Remainder: {datetime.strftime(self.next_remainder, '%Hh%M')}",
+                                                        font=customtkinter.CTkFont("Arial", 15),
+                                                        width=120,
+                                                        height=25,
+                                                        # fg_color=,
+                                                        corner_radius=8)
+
+            self.message_label = customtkinter.CTkLabel(self, 
+                                                        text=f"Message: {self.next_message}",
+                                                        font=customtkinter.CTkFont("Arial", 15),
+                                                        width=120,
+                                                        height=25,
+                                                        # fg_color=,
+                                                        corner_radius=8)
+            
+            self.activities_button = customtkinter.CTkButton(self, corner_radius=10, height=40, border_spacing=10, text="See All Activities",
+                                                             font=customtkinter.CTkFont("Arial", 15),
+                                                             anchor="n", command=self.activities_button_event)
+            
+        self.label = customtkinter.CTkLabel(self,
+                                            font=customtkinter.CTkFont("Arial", 30, "bold"),
+                                            text=self.label_text,
+                                            width=120,
+                                            height=25,
+                                            # fg_color=,
+                                            corner_radius=8)
+        
+        self.label.pack(fill=tk.X)
+
+        if self.activities_list:
+            self.date_label.pack(fill=tk.X)
+            self.time_label.pack(fill=tk.X)
+            self.remainder_label.pack(fill=tk.X)
+            self.message_label.pack(fill=tk.X)
+            self.activities_button.pack(fill=tk.X, padx=100, pady=20)
+
+    def activities_button_event(self):
+        self.master.navigation_frame.select_frame_by_name("activities")
 
 
 class CalendarFrame(customtkinter.CTkFrame):
@@ -249,13 +307,22 @@ class ActivitiesFrame(customtkinter.CTkFrame):
     def __init__(self, master) -> None:
         super().__init__(master)
 
+        self.label_text = tk.StringVar(value="Activities")
+        self.label = customtkinter.CTkLabel(self,
+                                            font=customtkinter.CTkFont("Arial", 30, "bold"),
+                                            textvariable=self.label_text,
+                                            width=120,
+                                            height=25,
+                                            # fg_color=,
+                                            corner_radius=8)
+        self.label.pack(fill=tk.X)
+
         self.activities_list = self.master.activity_handler.get_activities()
-        if not self.activities_list:
-            self.no_activities_label = customtkinter.CTkLabel(self, text="No Activities")
-            self.no_activities_label.grid(row=0, column=0, columnspan=2)
-        else:
-            self.task_list = ScrollableRadiobuttonFrame(self, item_list=self.activities_list)
-            self.task_list.pack(fill=tk.X)
+        self.task_list = ScrollableRadiobuttonFrame(self, item_list=self.activities_list)
+        self.task_list.pack(fill=tk.X)
+    
+    def update_activity_list(self):
+        self.task_list.update_list(self.master.activity_handler.get_activities())
             
 
 
