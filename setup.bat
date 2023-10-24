@@ -1,3 +1,4 @@
+@echo off
 :: Check if venv folder exists in current directory
 :: If not, create venv with virtualenv
 if exist venv\ (
@@ -10,6 +11,12 @@ if exist venv\ (
     pip install -r requirements.txt
     echo "Requirements installed."
 ) else (
+    ::Check python version
+    python --version
+
+    :: Install virtualenv
+    pip install virtualenv
+
     echo "Virtual environment not found. Creating venv..."
     virtualenv venv
     echo "Venv created."
