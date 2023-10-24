@@ -1,4 +1,4 @@
-from win10toast import ToastNotifier
+from win10toast_click import ToastNotifier
 import schedule
 from datetime import datetime
 import time
@@ -29,13 +29,16 @@ def save_pid() -> None:
 def read_pid() -> int:
     with open(PID_FILE, "rb") as file:
         return int.from_bytes(file.read(), "little")
+    
+def run_agenda() -> None:
+    subprocess.run(["cmd", "/c", f"start /B {FOLDER_PATH}/run_agenda.vbs"])
 
-def show_toast(act: Activity, act_hand: ActivityHandler) -> None:
+def show_toast(act: Activity, act_hand: ActivityHandler):
     if act.date.date() != datetime.today().date():
         return
     message = f"You have an activity at {datetime.strftime(act.time, '%H:%M')}"
     toast = ToastNotifier()
-    toast.show_toast(TITLE, message, icon_path=ICON_PATH, duration=DURATION, threaded=THREADED)
+    toast.show_toast(TITLE, message, icon_path=ICON_PATH, duration=DURATION, threaded=THREADED, callback_on_click=run_agenda)
     return schedule.CancelJob
 
 def main() -> None:
@@ -47,7 +50,10 @@ def main() -> None:
         if datetime.combine(act[1].date.date(), act[1].time.time()) < datetime.now():
             act_hand.delete_activity(act[0])
         remainder_time = act_hand.get_remainder_time(act[1])
-        schedule.every().day.at(str(remainder_time)).do(show_toast, act=act[1], act_hand=act_hand)
+        s = remainder_time.seconds
+        hours, remainder = divmod(s, 3600)
+        minutes, seconds = divmod(remainder, 60)
+        schedule.every().day.at(f"{hours:02}:{minutes:02}:{seconds:02}").do(show_toast, act=act[1], act_hand=act_hand)
 
     while True:
         schedule.run_pending()
