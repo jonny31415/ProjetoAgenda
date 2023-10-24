@@ -8,13 +8,25 @@ _>>> git clone https://github.com/jonny31415/ProjetoAgenda.git_
 
 Python version: _python 3.11.2_
 
+### Install via setup.bat
+
+Run _setup.bat_:
+
+_>>> .\setup.bat_
+
+### Install manually
+
+__Install python dependencies__
+
+_It is advised to use a virtual environment._
+
 Install requirements:
 
 _>>> pip install -m requirements.txt_
 
-## Configure remainder to run in the background
+__Configure remainder to run in the background__
 
-### On Windows:
+On Windows:
 
 1. Press Win+R and search for shell:startup
 2. Create a shortcut of run_remainder.vbs into folder
@@ -22,10 +34,10 @@ _>>> pip install -m requirements.txt_
 
 ## Run program
 
-Run program:
+### Python
 
 _>>> python main.py_
 
-## Add, edit or delete activities
+### Script
 
-Go to the calendar and choose the activity day. Create a new one or select an existing one to edit or delete.
+_>>> run_agenda.vbs_

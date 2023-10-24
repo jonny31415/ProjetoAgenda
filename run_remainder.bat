@@ -1,2 +1,6 @@
 @echo off
-D:\joaof\Documentos\USP\8_Semestre\Engenharia_de_Software\ProjetoAgenda\venv\Scripts\python.exe D:\joaof\Documentos\USP\8_Semestre\Engenharia_de_Software\ProjetoAgenda\Remainder.py
+if exist venv\ (
+    %~dp0\venv\Scripts\python.exe %~dp0\Remainder.py
+) else (
+    echo "Virtual environment not found. Please run setup.bat"
+)
