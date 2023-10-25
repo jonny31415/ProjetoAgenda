@@ -6,17 +6,17 @@ class Agenda:
         self.ui = ui    
         self.activity_handler = activity_handler
         
-    def add_activity(self, event=None) -> None:
-        print("add")
-        activity = self.ui.day_frame.get_entry_text()
-        self.ui.day_frame.clear_entry()
-        self.activity_handler.add_activity(activity)
-        self.ui.day_frame.update_activity_list()
+    # def add_activity(self, event=None) -> None:
+    #     print("add")
+    #     activity = self.ui.day_frame.get_entry_text()
+    #     self.ui.day_frame.clear_entry()
+    #     self.activity_handler.add_activity(activity)
+    #     self.ui.day_frame.update_activity_list()
 
-    def delete_activity(self, event=None) -> None:
-        print("oi")
-        self.activity_handler.delete_activity(self.ui.selected_task)
-        self.ui.day_frame.update_task_list()
+    # def delete_activity(self, event=None) -> None:
+    #     print("oi")
+    #     self.activity_handler.delete_activity(self.ui.selected_task)
+    #     self.ui.day_frame.update_task_list()
     
     def run(self) -> None:
             self.ui.mainloop()
